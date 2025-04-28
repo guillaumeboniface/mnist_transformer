@@ -3,6 +3,24 @@ from torch.utils.data import Dataset
 import datasets
 import torchvision.transforms as transforms
 
+label_to_index = {
+    "0": 0,
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "4": 4,
+    "5": 5,
+    "6": 6,
+    "7": 7,
+    "8": 8,
+    "9": 9,
+    "<start>": 10,
+    "<end>": 11,
+    "<pad>": 12
+}
+
+index_to_label = {v: k for k, v in label_to_index.items()}
+
 class MNISTDataset(Dataset):
     def __init__(self, split="train"):
         self.dataset = datasets.load_dataset("ylecun/mnist")[split]
@@ -30,7 +48,7 @@ class TiledMNISTDataset(Dataset):
             images.append(self.transform(self.dataset[i]["image"]))
             labels.append(self.dataset[i]["label"])
         tile = torch.cat([torch.cat(images[:2], dim=2), torch.cat(images[2:], dim=2)], dim=1)
-        return tile, torch.tensor(labels, dtype=torch.long)
+        return tile, torch.tensor([label_to_index["<start>"]] + labels, dtype=torch.long), torch.tensor(labels + [label_to_index["<end>"]], dtype=torch.long)
     
 if __name__ == "__main__":
     dataset = MNISTDataset()
