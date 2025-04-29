@@ -5,6 +5,8 @@ import torch
 from torch import nn
 import wandb
 import itertools
+from safetensors.torch import save_file
+import os
 
 if __name__ == "__main__":
     torch.manual_seed(42)
@@ -71,5 +73,7 @@ if __name__ == "__main__":
                 print(f"\r[Epoch {epoch+1}/{num_epochs}], [Step {i+1}/{len(train_loader)}], Train Loss: {torch.tensor(epoch_loss[-interval:]).mean().item():.4f}, Test Loss: {torch.tensor(epoch_test_loss[-interval:]).mean().item():.4f}, Test Accuracy: {torch.tensor(epoch_test_accuracy[-interval:]).mean().item():.4f}")
             
         print(f"\n[Epoch {epoch+1}/{num_epochs}], Train Loss: {torch.tensor(epoch_loss).mean().item():.4f}, Test Loss: {torch.tensor(epoch_test_loss).mean().item():.4f}, Test Accuracy: {torch.tensor(epoch_test_accuracy).mean().item():.4f}")
-                
+        model_path = f"model/{wandb.run.name}/transformer_{epoch}.safetensors"
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        save_file(model.state_dict(), model_path)
                 

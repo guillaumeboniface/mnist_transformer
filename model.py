@@ -39,9 +39,10 @@ class AttentionHead(nn.Module):
         key = self.key(y)
         value = self.value(y)
         
-        attention_weights = torch.bmm(query, key.transpose(1, 2)) / torch.sqrt(torch.tensor(self.head_dim, dtype=torch.float32))
+        attention_weights = torch.bmm(query, key.transpose(1, 2)) / torch.sqrt(torch.tensor(self.head_dim, dtype=torch.float32)) # [batch_size, num_tokens, num_tokens]
         if self.mask:
-            attention_weights = torch.tril(attention_weights)
+            mask = torch.triu(torch.ones_like(attention_weights), diagonal=1)
+            attention_weights = attention_weights.masked_fill(mask.bool(), float('-inf'))
         attention_weights = torch.softmax(attention_weights, dim=-1)
         weighted_value = torch.bmm(attention_weights, value)
 
@@ -54,7 +55,7 @@ class MultiHeadAttention(nn.Module):
         self.y_dim = y_dim
         self.output_dim = output_dim
         self.num_heads = num_heads
-        self.heads = nn.ModuleList([AttentionHead(x_dim, y_dim, output_dim // num_heads, mask) for _ in range(num_heads)])
+        self.heads = nn.ModuleList([AttentionHead(x_dim, y_dim, output_dim // num_heads, mask=mask) for _ in range(num_heads)])
 
     def forward(self, x, y):
         return torch.cat([head(x, y) for head in self.heads], dim=-1)
@@ -154,7 +155,7 @@ class TransformerClassifier(nn.Module):
         return x
     
 class MNISTTransformer(nn.Module):
-    def __init__(self, x_dim, y_dim, num_heads, num_layers, num_classes, img_size=56, patch_size=14):
+    def __init__(self, x_dim, y_dim, num_heads, num_layers, num_classes, img_size=56, patch_size=14, max_text_len=5):
         super().__init__()
         self.x_dim = x_dim
         self.y_dim = y_dim
@@ -164,7 +165,7 @@ class MNISTTransformer(nn.Module):
         self.image_embedding = ImageEmbedding(img_size=img_size, patch_size=patch_size)
         self.text_embedding = nn.Embedding(num_classes, x_dim)
         self.image_positional_encoding = PositionalEncoding(y_dim, max_len=(img_size // patch_size) ** 2)
-        self.text_positional_encoding = PositionalEncoding(x_dim, max_len=5)
+        self.text_positional_encoding = PositionalEncoding(x_dim, max_len=max_text_len)
         self.transformer_encoder = TransformerEncoder(y_dim, num_heads, num_layers)
         self.transformer_decoder = TransformerDecoder(x_dim, y_dim, num_heads, num_layers)
         self.classifier = nn.Linear(x_dim, num_classes)
@@ -209,9 +210,10 @@ if __name__ == "__main__":
     transformer_decoder = TransformerDecoder(16, 64, 4, 3)
     assert transformer_decoder(dummy_decoder_input, transformer_encoder(image_embedding(dummy_image))).shape == torch.Size([3, 6, 16])
 
-    dummy_text = torch.randint(0, 13, (3, 6), dtype=torch.long)
+    dummy_text = torch.randint(0, 13, (3, 5), dtype=torch.long)
+    dummy_image = torch.randn(3, 56, 56)
     mnist_transformer = MNISTTransformer(16, 64, 4, 3, 13)
-    assert mnist_transformer(dummy_text, dummy_image).shape == torch.Size([3, 6, 13])
+    assert mnist_transformer(dummy_text, dummy_image).shape == torch.Size([3, 5, 13])
 
 
         

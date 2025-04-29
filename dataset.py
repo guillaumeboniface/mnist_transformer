@@ -49,12 +49,15 @@ class TiledMNISTDataset(Dataset):
             labels.append(self.dataset[i]["label"])
         tile = torch.cat([torch.cat(images[:2], dim=2), torch.cat(images[2:], dim=2)], dim=1)
         return tile, torch.tensor([label_to_index["<start>"]] + labels, dtype=torch.long), torch.tensor(labels + [label_to_index["<end>"]], dtype=torch.long)
-    
+
 if __name__ == "__main__":
     dataset = MNISTDataset()
     print(dataset[0])
     tiled_dataset = TiledMNISTDataset()
-    print(tiled_dataset[0])
-    print(tiled_dataset[0][0].shape)
+    sample = tiled_dataset[0]
+    print(sample[0].shape)
+    print(sample[1])
+    print(sample[2])
+    assert (sample[1][1:] == sample[2][:-1]).all()
         
         
