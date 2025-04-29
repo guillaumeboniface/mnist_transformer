@@ -181,6 +181,10 @@ class MNISTTransformer(nn.Module):
         return x
 
 if __name__ == "__main__":
+    dummy_image = torch.randn(3, 128, 128) # 3 images of 28x28
+    image_embedding = ImageEmbedding(img_size=128, patch_size=16)
+    assert image_embedding(dummy_image).shape == torch.Size([3, 64, 64])
+
     dummy_image = torch.randn(3, 28, 28) # 3 images of 28x28
     image_embedding = ImageEmbedding()
     assert image_embedding(dummy_image).shape == torch.Size([3, 4, 64])

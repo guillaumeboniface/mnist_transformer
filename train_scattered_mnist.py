@@ -1,5 +1,5 @@
 from model import MNISTTransformer
-from dataset import TiledMNISTDataset, label_to_index, index_to_label
+from dataset import ScatteredMNISTDataset, label_to_index, index_to_label
 from torch.utils.data import DataLoader
 import torch
 from torch import nn
@@ -11,10 +11,10 @@ import os
 if __name__ == "__main__":
     torch.manual_seed(42)
 
-    train_dataset = TiledMNISTDataset(split="train")
+    train_dataset = ScatteredMNISTDataset(split="train")
     train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
     
-    test_dataset = TiledMNISTDataset(split="test")
+    test_dataset = ScatteredMNISTDataset(split="test")
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False)
     
     image_embedding_dim = 64
@@ -23,18 +23,18 @@ if __name__ == "__main__":
     num_layers = 3
     learning_rate = 0.001
     num_epochs = 10
-    model = MNISTTransformer(text_embedding_dim, image_embedding_dim, num_heads, num_layers, len(label_to_index), img_size=128, patch_size=14)
+    model = MNISTTransformer(text_embedding_dim, image_embedding_dim, num_heads, num_layers, len(label_to_index), img_size=128, patch_size=16)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    wandb.init(project="mnist-scattered", config={
-        "text_embedding_dim": text_embedding_dim,
-        "image_embedding_dim": image_embedding_dim,
-        "num_heads": num_heads,
-        "num_layers": num_layers,
-        "learning_rate": learning_rate,
-        "model": str(model)
-    })
+    # wandb.init(project="mnist-scattered", config={
+    #     "text_embedding_dim": text_embedding_dim,
+    #     "image_embedding_dim": image_embedding_dim,
+    #     "num_heads": num_heads,
+    #     "num_layers": num_layers,
+    #     "learning_rate": learning_rate,
+    #     "model": str(model)
+    # })
 
     interval = 100
     for epoch in range(num_epochs):
@@ -61,11 +61,11 @@ if __name__ == "__main__":
             epoch_loss.append(loss.item())
             epoch_test_loss.append(test_loss.item())
             epoch_test_accuracy.append(test_accuracy.item())            
-            wandb.log({
-                "train_loss": loss.item(),
-                "test_loss": test_loss.item(),
-                "test_accuracy": test_accuracy.item()
-            })
+            # wandb.log({
+            #     "train_loss": loss.item(),
+            #     "test_loss": test_loss.item(),
+            #     "test_accuracy": test_accuracy.item()
+            # })
 
             print(f"\r[Epoch {epoch+1}/{num_epochs}], [Step {i+1}/{len(train_loader)}], Train Loss: {loss.item():.4f}, Test Loss: {test_loss.item():.4f}, Test Accuracy: {test_accuracy.item():.4f}", end="")
             
