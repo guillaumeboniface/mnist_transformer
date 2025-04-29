@@ -9,7 +9,7 @@ if __name__ == "__main__":
     token_length = 4
     batch_size = 128
     model = MNISTTransformer(16, 64, 4, 3, 13)
-    model.load_state_dict(load_file("model/revived-deluge-10/transformer_1.safetensors"))
+    model.load_state_dict(load_file("model/summer-sunset-11/transformer_9.safetensors"))
     model.eval()
 
     test_dataset = TiledMNISTDataset(split="test")
@@ -19,6 +19,8 @@ if __name__ == "__main__":
     accuracy = []
     for batch in tqdm(test_loader):
         image, _, text_output = batch
+        if image.shape[0] != batch_size:
+            continue
         sentence = start_sentence.repeat(batch_size, 1)
         prediction = []
         for i in range(token_length):
@@ -28,8 +30,5 @@ if __name__ == "__main__":
             sentence[:, i+1] = output
             prediction.append(output)
         prediction = torch.stack(prediction, dim=1)
-        accuracy.append((prediction == text_output[:,:-1]).sum().item() / batch_size)
-        print(prediction[0])
-        print(text_output[0])
-        print(accuracy[-1])
-    print(sum(accuracy) / len(accuracy))
+        accuracy.append((prediction == text_output[:,:-1]).to(torch.float32).mean().item())
+    print(f"Accuracy: {sum(accuracy) / len(accuracy)}")
