@@ -179,6 +179,35 @@ class MNISTTransformer(nn.Module):
         x = self.transformer_decoder(text, image)
         x = self.classifier(x)
         return x
+    
+class MNISTLocationTransformer(nn.Module):
+    def __init__(self, x_dim, y_dim, num_heads, num_layers, num_classes, img_size=128, patch_size=16, max_text_len=5):
+        super().__init__()
+        self.x_dim = x_dim
+        self.y_dim = y_dim
+        self.num_heads = num_heads
+        self.num_layers = num_layers
+        self.num_classes = num_classes
+        self.image_embedding = ImageEmbedding(img_size=img_size, patch_size=patch_size)
+        self.text_embedding = nn.Embedding(num_classes, x_dim)
+        self.image_positional_encoding = PositionalEncoding(y_dim, max_len=(img_size // patch_size) ** 2)
+        self.text_positional_encoding = PositionalEncoding(x_dim, max_len=max_text_len)
+        self.transformer_encoder = TransformerEncoder(y_dim, num_heads, num_layers)
+        self.transformer_decoder = TransformerDecoder(x_dim, y_dim, num_heads, num_layers)
+        self.classifier = nn.Linear(x_dim, num_classes)
+        self.location_regressor = nn.Linear(x_dim, (img_size // patch_size) ** 2)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, text, image):
+        text = self.text_embedding(text)
+        text = self.text_positional_encoding(text)
+        image = self.image_embedding(image)
+        image = self.image_positional_encoding(image)
+        image = self.transformer_encoder(image)
+        x = self.transformer_decoder(text, image)
+        x = self.classifier(x)
+        location = self.softmax(self.location_regressor(x).reshape(x.shape[0], 2, -1))
+        return x, location
 
 if __name__ == "__main__":
     dummy_image = torch.randn(3, 128, 128) # 3 images of 28x28

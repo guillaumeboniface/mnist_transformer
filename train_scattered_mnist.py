@@ -27,14 +27,14 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    # wandb.init(project="mnist-scattered", config={
-    #     "text_embedding_dim": text_embedding_dim,
-    #     "image_embedding_dim": image_embedding_dim,
-    #     "num_heads": num_heads,
-    #     "num_layers": num_layers,
-    #     "learning_rate": learning_rate,
-    #     "model": str(model)
-    # })
+    wandb.init(project="mnist-scattered", config={
+        "text_embedding_dim": text_embedding_dim,
+        "image_embedding_dim": image_embedding_dim,
+        "num_heads": num_heads,
+        "num_layers": num_layers,
+        "learning_rate": learning_rate,
+        "model": str(model)
+    })
 
     interval = 100
     for epoch in range(num_epochs):
@@ -61,11 +61,11 @@ if __name__ == "__main__":
             epoch_loss.append(loss.item())
             epoch_test_loss.append(test_loss.item())
             epoch_test_accuracy.append(test_accuracy.item())            
-            # wandb.log({
-            #     "train_loss": loss.item(),
-            #     "test_loss": test_loss.item(),
-            #     "test_accuracy": test_accuracy.item()
-            # })
+            wandb.log({
+                "train_loss": loss.item(),
+                "test_loss": test_loss.item(),
+                "test_accuracy": test_accuracy.item()
+            })
 
             print(f"\r[Epoch {epoch+1}/{num_epochs}], [Step {i+1}/{len(train_loader)}], Train Loss: {loss.item():.4f}, Test Loss: {test_loss.item():.4f}, Test Accuracy: {test_accuracy.item():.4f}", end="")
             

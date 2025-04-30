@@ -51,13 +51,14 @@ class TiledMNISTDataset(Dataset):
         return tile, torch.tensor([label_to_index["<start>"]] + labels, dtype=torch.long), torch.tensor(labels + [label_to_index["<end>"]], dtype=torch.long)
 
 class ScatteredMNISTDataset(Dataset):
-    def __init__(self, split="train", max_n=4):
+    def __init__(self, split="train", max_n=4, location_target=False, patch_size=16):
         self.dataset = datasets.load_dataset("ylecun/mnist")[split]
         self.max_n = max_n
         self.transform = transforms.ToTensor()
         self.digit_size = 28  # MNIST digits are 28x28
         self.canvas_size = 128
-        
+        self.location_target = location_target
+        self.patch_size = patch_size
     def __len__(self):
         return len(self.dataset)
     
@@ -74,6 +75,7 @@ class ScatteredMNISTDataset(Dataset):
         pixel_pool = torch.arange(trimmed_canvas_size ** 2)
         # Create a mask to exclude positions that are already occupied
         mask = torch.ones((trimmed_canvas_size ** 2), dtype=torch.bool)
+        centers = []
         for _ in range(n):
             idx = torch.randint(0, len(self.dataset), (1,)).item()
             # Randomly pick a position from the pool
@@ -82,6 +84,9 @@ class ScatteredMNISTDataset(Dataset):
             pos = masked_pool[pos]
             x = pos % trimmed_canvas_size
             y = pos // trimmed_canvas_size
+            center = torch.tensor([x + self.digit_size // 2, y + self.digit_size // 2])
+            patch_center = center // self.patch_size
+            centers.append(patch_center)
             # Place the digit on the canvas
             canvas[:, y:y+self.digit_size, x:x+self.digit_size] = self.transform(self.dataset[idx]["image"])
             positions.append((x, y))
@@ -90,12 +95,17 @@ class ScatteredMNISTDataset(Dataset):
             mask.view((trimmed_canvas_size, trimmed_canvas_size))[y:min(y+self.digit_size, trimmed_canvas_size), x:min(x+self.digit_size, trimmed_canvas_size)] = False
         
         # Create input and target sequences
-        labels = [label_to_index["<start>"]] + sorted(labels) + [label_to_index["<end>"]]
+        if len(centers) > 0:
+            centers, labels = zip(*sorted(zip(centers, labels), key=lambda x: x[1]))
+            centers = torch.stack(centers)
+        labels = [label_to_index["<start>"]] + list(labels) + [label_to_index["<end>"]]
         labels = labels + [label_to_index["<pad>"]] * max(self.max_n + 2 - len(labels), 0)
         input_seq = torch.tensor(labels[:self.max_n+1], dtype=torch.long)
         target_seq = torch.tensor(labels[1:], dtype=torch.long)
-        
-        return canvas, input_seq, target_seq
+        if self.location_target:
+            return canvas, input_seq, target_seq, centers
+        else:
+            return canvas, input_seq, target_seq
 
 if __name__ == "__main__":
     from torchvision.transforms.functional import to_pil_image
@@ -109,10 +119,10 @@ if __name__ == "__main__":
     # print(sample[2])
     # assert (sample[1][1:] == sample[2][:-1]).all()
 
-    scattered_dataset = ScatteredMNISTDataset()
+    scattered_dataset = ScatteredMNISTDataset(location_target=True)
     for i in range(40):
         sample = scattered_dataset[i]
-        print(f"sample {i}: {sample[1]}")
+        print(f"sample {i}: {sample[1]}, target: {sample[2]}, location: {sample[3]}")
         assert sample[1].shape == sample[2].shape == (5,)
         assert (sample[1][1:] == sample[2][:-1]).all()
         to_pil_image(sample[0]).save(f"samples/scattered_sample_{i}.png")
