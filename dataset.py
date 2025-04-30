@@ -95,9 +95,10 @@ class ScatteredMNISTDataset(Dataset):
             mask.view((trimmed_canvas_size, trimmed_canvas_size))[y:min(y+self.digit_size, trimmed_canvas_size), x:min(x+self.digit_size, trimmed_canvas_size)] = False
         
         # Create input and target sequences
+        location_padding = torch.tensor([self.canvas_size // self.patch_size, self.canvas_size // self.patch_size])
         if len(centers) > 0:
             centers, labels = zip(*sorted(zip(centers, labels), key=lambda x: x[1]))
-            centers = torch.stack(centers)
+        centers = torch.stack(list(centers) + [location_padding] * (self.max_n + 1 - len(centers)))
         labels = [label_to_index["<start>"]] + list(labels) + [label_to_index["<end>"]]
         labels = labels + [label_to_index["<pad>"]] * max(self.max_n + 2 - len(labels), 0)
         input_seq = torch.tensor(labels[:self.max_n+1], dtype=torch.long)

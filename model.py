@@ -14,6 +14,31 @@ class ImageEmbedding(nn.Module):
         x = self.projection(x)
         return x
     
+class ConvImageEmbedding(nn.Module):
+    def __init__(self, img_size=28, patch_size=14, embedding_dim=64):
+        super().__init__()
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.num_patches = (img_size // patch_size) ** 2
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.projection = nn.Linear(64 * patch_size // 4, embedding_dim)
+    
+    def forward(self, x):
+        batch_size = x.shape[0]
+        x = x.view(batch_size * self.num_patches, 1, self.patch_size, self.patch_size)
+        x = self.conv1(x)
+        x = self.maxpool(x)
+        x = self.conv2(x)
+        x = self.maxpool(x)
+        x = self.conv3(x)
+        x = self.maxpool(x)
+        x = x.view(batch_size, self.num_patches, -1)
+        x = self.projection(x)
+        return x
+    
 class PositionalEncoding(nn.Module):
     def __init__(self, embedding_dim, max_len=10):
         super().__init__()
@@ -162,7 +187,7 @@ class MNISTTransformer(nn.Module):
         self.num_heads = num_heads
         self.num_layers = num_layers
         self.num_classes = num_classes
-        self.image_embedding = ImageEmbedding(img_size=img_size, patch_size=patch_size)
+        self.image_embedding = ConvImageEmbedding(img_size=img_size, patch_size=patch_size)
         self.text_embedding = nn.Embedding(num_classes, x_dim)
         self.image_positional_encoding = PositionalEncoding(y_dim, max_len=(img_size // patch_size) ** 2)
         self.text_positional_encoding = PositionalEncoding(x_dim, max_len=max_text_len)
@@ -185,17 +210,18 @@ class MNISTLocationTransformer(nn.Module):
         super().__init__()
         self.x_dim = x_dim
         self.y_dim = y_dim
+        self.max_text_len = max_text_len
         self.num_heads = num_heads
         self.num_layers = num_layers
         self.num_classes = num_classes
-        self.image_embedding = ImageEmbedding(img_size=img_size, patch_size=patch_size)
+        self.image_embedding = ConvImageEmbedding(img_size=img_size, patch_size=patch_size)
         self.text_embedding = nn.Embedding(num_classes, x_dim)
         self.image_positional_encoding = PositionalEncoding(y_dim, max_len=(img_size // patch_size) ** 2)
         self.text_positional_encoding = PositionalEncoding(x_dim, max_len=max_text_len)
         self.transformer_encoder = TransformerEncoder(y_dim, num_heads, num_layers)
         self.transformer_decoder = TransformerDecoder(x_dim, y_dim, num_heads, num_layers)
         self.classifier = nn.Linear(x_dim, num_classes)
-        self.location_regressor = nn.Linear(x_dim, (img_size // patch_size) ** 2)
+        self.location_regressor = nn.Linear(x_dim, 2 * (img_size // patch_size + 1))
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, text, image):
@@ -205,9 +231,9 @@ class MNISTLocationTransformer(nn.Module):
         image = self.image_positional_encoding(image)
         image = self.transformer_encoder(image)
         x = self.transformer_decoder(text, image)
-        x = self.classifier(x)
-        location = self.softmax(self.location_regressor(x).reshape(x.shape[0], 2, -1))
-        return x, location
+        digit = self.classifier(x)
+        location = self.softmax(self.location_regressor(x).reshape(x.shape[0], self.max_text_len, 2, -1))
+        return digit, location
 
 if __name__ == "__main__":
     dummy_image = torch.randn(3, 128, 128) # 3 images of 28x28

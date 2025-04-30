@@ -22,8 +22,8 @@ if __name__ == "__main__":
     num_heads = 4
     num_layers = 3
     learning_rate = 0.001
-    num_epochs = 10
-    model = MNISTTransformer(text_embedding_dim, image_embedding_dim, num_heads, num_layers, len(label_to_index), img_size=128, patch_size=16)
+    num_epochs = 30
+    model = MNISTTransformer(text_embedding_dim, image_embedding_dim, num_heads, num_layers, len(label_to_index), img_size=128, patch_size=16).to("cuda")
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -44,6 +44,9 @@ if __name__ == "__main__":
         for i, (batch, test_batch) in enumerate(zip(train_loader, itertools.cycle(test_loader))):
             model.train()
             image, input_text, output_text = batch
+            image = image.to("cuda")
+            input_text = input_text.to("cuda")
+            output_text = output_text.to("cuda")
 
             optimizer.zero_grad()
             output = model(input_text, image)
@@ -54,6 +57,9 @@ if __name__ == "__main__":
             with torch.no_grad():
                 model.eval()
                 test_image, test_input_text, test_output_text = test_batch
+                test_image = test_image.to("cuda")
+                test_input_text = test_input_text.to("cuda")
+                test_output_text = test_output_text.to("cuda")
                 test_output = model(test_input_text, test_image)
                 test_loss = criterion(test_output.transpose(1, 2), test_output_text)
                 test_accuracy = (test_output.argmax(dim=2) == test_output_text).float().mean()
